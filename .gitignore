@@ -1,0 +1,20 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+
+# 내보내기 설정의 서명·비밀번호 정보
+export_credentials.cfg
+
+# 내보내기 결과물 (빌드 폴더와 실행 파일)
+/build/
+/builds/
+*.pck
+*.exe
+*.dmg
+*.apk
+*.aab
+*.x86_64
+*.arm64
+
+# macOS
+.DS_Store
