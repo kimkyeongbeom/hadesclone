@@ -63,6 +63,21 @@ enum Skill { MELEE, MISSILE, TELEPORT }
 ## 출발점·도착점 파란 원이 보이는 시간 (초)
 @export var teleport_effect_time := 0.3
 
+## 움직일 때 반복하는 애니메이션
+@export var run_animation := &"run"
+## 검이 없을 때 공격 애니메이션 (근접 공격·미사일)
+@export var punch_animation := &"punch"
+## 검을 들었을 때 근접 공격 애니메이션
+@export var slash_animation := &"sword-slash"
+## 서 있을 때 자세로 쓸 애니메이션. 기사 모델에 idle이 없어 이 애니메이션의 첫 프레임에 멈춰 둔다.
+@export var idle_pose_animation := &"sword-slash"
+## 공격 애니메이션 재생 속도 (배)
+@export var attack_animation_speed := 1.5
+## 애니메이션이 바뀔 때 섞는 시간 (초)
+@export var animation_blend := 0.1
+## 검을 들고 있는지. 보물상자를 열면 true가 된다.
+@export var has_sword := false
+
 var health: float
 var is_dead := false
 
@@ -78,9 +93,11 @@ var _ignore_held_move := false
 var _marker_tween: Tween
 var _fan_tween: Tween
 var _teleport_tween: Tween
+var _attack_animation_left := 0.0
 
-@onready var _body: MeshInstance3D = $Body
-@onready var _nose: MeshInstance3D = $Nose
+@onready var _model: Node3D = $Model
+@onready var _animation_player: AnimationPlayer = $Model/AnimationPlayer
+@onready var _sword: Node3D = $Model/KnightRig/Skeleton3D/Hand_R/Sword
 @onready var _collision_shape: CollisionShape3D = $CollisionShape3D
 @onready var _click_marker: MeshInstance3D = $ClickMarker
 @onready var _melee_fan: MeshInstance3D = $MeleeFan
@@ -97,7 +114,16 @@ func _ready() -> void:
 	for effect in [_click_marker, _teleport_from_ring, _teleport_to_ring]:
 		effect.top_level = true
 	_melee_fan.mesh = _build_fan_mesh()
+	_sword.visible = has_sword
+	_add_idle_animation()
+	_animation_player.play(&"player/idle")
 	_prewarm_effects()
+
+
+## 보물상자가 열리면 불린다. 검을 손에 들고, 근접 공격이 칼질로 바뀐다.
+func equip_sword() -> void:
+	has_sword = true
+	_sword.visible = true
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -122,6 +148,7 @@ func _physics_process(delta: float) -> void:
 	_teleport_cooldown_left = maxf(_teleport_cooldown_left - delta, 0.0)
 	_teleport_invincible_left = maxf(_teleport_invincible_left - delta, 0.0)
 	_stand_left = maxf(_stand_left - delta, 0.0)
+	_attack_animation_left = maxf(_attack_animation_left - delta, 0.0)
 	_update_hurt_blink(delta)
 
 	# 우클릭과 Q는 누르고 있으면 쿨다운마다 반복 발동한다.
@@ -135,6 +162,7 @@ func _physics_process(delta: float) -> void:
 	# 공격 직후에는 잠깐 제자리에 선다.
 	if _stand_left > 0.0:
 		velocity = Vector3.ZERO
+		_update_animation(false)
 		return
 
 	var wasd := _get_wasd_direction()
@@ -160,6 +188,7 @@ func _physics_process(delta: float) -> void:
 	if direction != Vector3.ZERO:
 		Movement.slide_around_trees(self, direction, move_speed, stuck_ratio)
 		_face(direction, delta)
+	_update_animation(direction != Vector3.ZERO)
 
 
 func take_damage(amount: float, _from_position: Vector3) -> void:
@@ -213,6 +242,7 @@ func _melee_attack(direction: Vector3) -> void:
 			continue
 		enemy.take_damage(melee_damage, global_position, melee_knockback)
 
+	_play_attack_animation(slash_animation if has_sword else punch_animation)
 	_show_melee_fan()
 
 
@@ -220,6 +250,7 @@ func _cast_missile(direction: Vector3) -> void:
 	_begin_attack(direction)
 	_missile_cooldown_left = missile_cooldown
 	skill_used.emit(Skill.MISSILE, missile_cooldown)
+	_play_attack_animation(punch_animation)
 
 	var missile := missile_scene.instantiate()
 	missile.direction = direction
@@ -301,7 +332,7 @@ func _get_wasd_direction() -> Vector3:
 
 
 func _face(direction: Vector3, delta: float) -> void:
-	# 앞쪽은 -Z 방향(코 상자가 있는 쪽)이다.
+	# 앞쪽은 -Z 방향(기사 얼굴이 보는 쪽)이다.
 	var yaw := atan2(-direction.x, -direction.z)
 	rotation.y = lerp_angle(rotation.y, yaw, 1.0 - exp(-turn_speed * delta))
 
@@ -310,9 +341,42 @@ func _update_hurt_blink(delta: float) -> void:
 	if _hurt_left <= 0.0:
 		return
 	_hurt_left = maxf(_hurt_left - delta, 0.0)
-	var shown := _hurt_left <= 0.0 or int(_hurt_left / blink_interval) % 2 == 0
-	_body.visible = shown
-	_nose.visible = shown
+	_model.visible = _hurt_left <= 0.0 or int(_hurt_left / blink_interval) % 2 == 0
+
+
+## 움직이면 달리기, 서 있으면 서 있는 자세. 공격 애니메이션은 끝날 때까지 두되,
+## 다시 걷기 시작하면 달리기로 바꾼다.
+func _update_animation(moving: bool) -> void:
+	var next := &""
+	if moving:
+		_attack_animation_left = 0.0
+		next = &"player/run"
+	elif _attack_animation_left <= 0.0:
+		next = &"player/idle"
+	if next != &"" and _animation_player.current_animation != next:
+		_animation_player.play(next, animation_blend)
+
+
+func _play_attack_animation(animation: StringName) -> void:
+	_animation_player.play(animation, animation_blend, attack_animation_speed)
+	# 같은 공격을 연달아 쓰면 처음부터 다시 재생한다.
+	_animation_player.seek(0.0, true)
+	_attack_animation_left = _animation_player.get_animation(animation).length / attack_animation_speed
+
+
+## 기사 모델에는 idle이 없어서, idle_pose_animation의 첫 프레임만 남긴 애니메이션을 만든다.
+## run도 같은 라이브러리에 두어 이름을 한곳에서 관리한다.
+func _add_idle_animation() -> void:
+	var idle := _animation_player.get_animation(idle_pose_animation).duplicate(true) as Animation
+	for track in idle.get_track_count():
+		for key in range(idle.track_get_key_count(track) - 1, 0, -1):
+			idle.track_remove_key(track, key)
+	idle.length = 0.1
+	idle.loop_mode = Animation.LOOP_LINEAR
+	var library := AnimationLibrary.new()
+	library.add_animation(&"idle", idle)
+	library.add_animation(&"run", _animation_player.get_animation(run_animation))
+	_animation_player.add_animation_library(&"player", library)
 
 
 ## 쓰러지면 회색으로 변하며 옆으로 눕는다.
@@ -322,16 +386,16 @@ func _die() -> void:
 	_has_target = false
 	velocity = Vector3.ZERO
 	collision_layer = 0
-	_body.visible = true
-	_nose.visible = true
+	_model.visible = true
+	_animation_player.pause()
 	var gray := StandardMaterial3D.new()
 	gray.albedo_color = Color(0.5, 0.5, 0.5)
-	_body.material_override = gray
-	_nose.material_override = gray
+	for mesh in _model.find_children("*", "MeshInstance3D", true, false):
+		mesh.material_override = gray
 	died.emit()
 	var tween := create_tween().set_process_mode(Tween.TWEEN_PROCESS_PHYSICS).set_parallel()
 	tween.tween_property(self, "rotation:z", PI * 0.5, 0.3)
-	tween.tween_property(self, "position:y", 0.4, 0.3)
+	tween.tween_property(self, "position:y", 0.3, 0.3)
 
 
 func _show_click_marker(point: Vector3) -> void:
