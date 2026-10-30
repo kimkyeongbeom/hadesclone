@@ -1,8 +1,13 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=17 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/Tree.tscn" id="1_tree"]
 [ext_resource type="PackedScene" path="res://scenes/Player.tscn" id="2_player"]
 [ext_resource type="Script" path="res://scripts/CameraRig.gd" id="3_camera"]
+[ext_resource type="PackedScene" path="res://scenes/MeleeEnemy.tscn" id="4_melee"]
+[ext_resource type="PackedScene" path="res://scenes/RangedEnemy.tscn" id="5_ranged"]
+[ext_resource type="PackedScene" path="res://scenes/BruteEnemy.tscn" id="6_brute"]
+[ext_resource type="Script" path="res://scripts/WaveManager.gd" id="7_waves"]
+[ext_resource type="PackedScene" path="res://scenes/HUD.tscn" id="8_hud"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_ground"]
 size = Vector3(40, 1, 40)
@@ -115,6 +120,32 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, -13)
 [node name="Tree12" parent="World/Trees" instance=ExtResource("1_tree")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 0, -4)
 
+[node name="SpawnPoints" type="Node3D" parent="World"]
+
+[node name="Spawn1" type="Marker3D" parent="World/SpawnPoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -17, 0, 0)
+
+[node name="Spawn2" type="Marker3D" parent="World/SpawnPoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 17, 0, 0)
+
+[node name="Spawn3" type="Marker3D" parent="World/SpawnPoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -17)
+
+[node name="Spawn4" type="Marker3D" parent="World/SpawnPoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 17)
+
+[node name="Spawn5" type="Marker3D" parent="World/SpawnPoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15, 0, -15)
+
+[node name="Spawn6" type="Marker3D" parent="World/SpawnPoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 0, -15)
+
+[node name="Spawn7" type="Marker3D" parent="World/SpawnPoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15, 0, 15)
+
+[node name="Spawn8" type="Marker3D" parent="World/SpawnPoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 0, 15)
+
 [node name="Sun" type="DirectionalLight3D" parent="World"]
 transform = Transform3D(0.866025, 0.383022, -0.321394, 0, 0.642788, 0.766044, 0.5, -0.663414, 0.55667, 0, 10, 0)
 light_energy = 1.1
@@ -124,7 +155,8 @@ directional_shadow_max_distance = 60.0
 [node name="Environment" type="WorldEnvironment" parent="World"]
 environment = SubResource("Environment_world")
 
-[node name="Player" parent="." instance=ExtResource("2_player")]
+[node name="Player" parent="." node_paths=PackedStringArray("projectile_parent") instance=ExtResource("2_player")]
+projectile_parent = NodePath("../Projectiles")
 
 [node name="CameraRig" type="Node3D" parent="." node_paths=PackedStringArray("target")]
 script = ExtResource("3_camera")
@@ -136,3 +168,20 @@ projection = 1
 current = true
 size = 20.0
 far = 100.0
+
+[node name="Enemies" type="Node3D" parent="."]
+
+[node name="Projectiles" type="Node3D" parent="." groups=["projectiles"]]
+
+[node name="WaveManager" type="Node" parent="." node_paths=PackedStringArray("player", "enemy_parent", "spawn_points")]
+script = ExtResource("7_waves")
+melee_scene = ExtResource("4_melee")
+ranged_scene = ExtResource("5_ranged")
+brute_scene = ExtResource("6_brute")
+player = NodePath("../Player")
+enemy_parent = NodePath("../Enemies")
+spawn_points = NodePath("../World/SpawnPoints")
+
+[node name="HUD" parent="." node_paths=PackedStringArray("player", "wave_manager") instance=ExtResource("8_hud")]
+player = NodePath("../Player")
+wave_manager = NodePath("../WaveManager")

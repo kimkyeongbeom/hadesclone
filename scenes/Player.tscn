@@ -1,6 +1,7 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://scripts/Player.gd" id="1_player"]
+[ext_resource type="PackedScene" path="res://scenes/MagicMissile.tscn" id="2_missile"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_body"]
 radius = 0.4
@@ -22,14 +23,31 @@ material = SubResource("StandardMaterial3D_nose")
 size = Vector3(0.18, 0.18, 0.3)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_marker"]
+transparency = 1
 shading_mode = 0
 albedo_color = Color(0.9, 1, 0.9, 1)
 
 [sub_resource type="TorusMesh" id="TorusMesh_marker"]
-material = SubResource("StandardMaterial3D_marker")
 inner_radius = 0.25
 outer_radius = 0.35
 rings = 24
+ring_segments = 6
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_fan"]
+transparency = 1
+shading_mode = 0
+cull_mode = 2
+albedo_color = Color(1, 0.95, 0.75, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_teleport"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(0.35, 0.6, 1, 1)
+
+[sub_resource type="TorusMesh" id="TorusMesh_teleport"]
+inner_radius = 0.45
+outer_radius = 0.65
+rings = 32
 ring_segments = 6
 
 [node name="Player" type="CharacterBody3D"]
@@ -37,6 +55,7 @@ collision_layer = 2
 collision_mask = 1
 motion_mode = 1
 script = ExtResource("1_player")
+missile_scene = ExtResource("2_missile")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.95, 0)
@@ -53,4 +72,23 @@ mesh = SubResource("BoxMesh_nose")
 [node name="ClickMarker" type="MeshInstance3D" parent="."]
 visible = false
 cast_shadow = 0
+material_override = SubResource("StandardMaterial3D_marker")
 mesh = SubResource("TorusMesh_marker")
+
+[node name="MeleeFan" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0)
+visible = false
+cast_shadow = 0
+material_override = SubResource("StandardMaterial3D_fan")
+
+[node name="TeleportFromRing" type="MeshInstance3D" parent="."]
+visible = false
+cast_shadow = 0
+material_override = SubResource("StandardMaterial3D_teleport")
+mesh = SubResource("TorusMesh_teleport")
+
+[node name="TeleportToRing" type="MeshInstance3D" parent="."]
+visible = false
+cast_shadow = 0
+material_override = SubResource("StandardMaterial3D_teleport")
+mesh = SubResource("TorusMesh_teleport")
